@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Stage {
+  researching
+  applied
+  interview
+  offer
+  rejected
+}
+
+enum Source {
+  finn
+  linkedin
+  referral
+  direct
+  other
+}
+
+enum DocumentType {
+  cv
+  cover_letter
+}
+
+model Application {
+  id          String   @id @default(cuid())
+  title       String
+  company     String
+  role        String
+  sourceUrl   String?
+  source      Source   @default(other)
+  stage       Stage    @default(researching)
+  deadline    DateTime?
+  appliedAt   DateTime?
+  fitScore    Int?
+  urgent      Boolean  @default(false)
+  rawListing  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  interviewLogs      InterviewLog[]
+  companyNotes       CompanyNote?
+  networkingContacts NetworkingContact[]
+  documentVersions   DocumentVersion[]
+  offer              Offer?
+  stageEvents        StageEvent[]
+}
+
+model StageEvent {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  stage         Stage
+  occurredAt    DateTime    @default(now())
+
+  @@index([applicationId])
+}
+
+model InterviewLog {
+  id                String      @id @default(cuid())
+  applicationId     String
+  application       Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  date              DateTime
+  round             String
+  interviewerNames  String?
+  questionsAsked    String?
+  howItWent         String?
+  outcome           String?
+  createdAt         DateTime    @default(now())
+
+  @@index([applicationId])
+}
+
+model CompanyNote {
+  id              String      @id @default(cuid())
+  applicationId   String      @unique
+  application     Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  culture         String?
+  recentNews      String?
+  whyThisCompany  String?
+  updatedAt       DateTime    @updatedAt
+}
+
+model NetworkingContact {
+  id             String      @id @default(cuid())
+  applicationId  String
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  contactName    String
+  relationship   String?
+  warmOrCold     String      @default("cold")
+  hasReachedOut  Boolean     @default(false)
+  notes          String?
+  createdAt      DateTime    @default(now())
+
+  @@index([applicationId])
+}
+
+model DocumentVersion {
+  id            String       @id @default(cuid())
+  applicationId String
+  application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  type          DocumentType
+  versionNumber Int
+  content       String
+  createdAt     DateTime     @default(now())
+
+  @@index([applicationId, type])
+}
+
+model Profile {
+  id              String   @id @default("singleton")
+  baseResumeText  String   @default("")
+  updatedAt       DateTime @updatedAt
+}
+
+model Offer {
+  id            String      @id @default(cuid())
+  applicationId String      @unique
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  compensation  String?
+  benefits      String?
+  location      String?
+  growthNotes   String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}

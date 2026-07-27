@@ -1,26 +1,101 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0a0912;
+  --bg-elevated: #121022;
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.09);
+  --text-primary: #f3f1f8;
+  --text-secondary: #9c96b0;
+  --text-muted: #6b6580;
+
+  --accent-researching-1: #3b82f6;
+  --accent-researching-2: #6366f1;
+  --accent-applied-1: #06b6d4;
+  --accent-applied-2: #3b82f6;
+  --accent-interview-1: #a855f7;
+  --accent-interview-2: #ec4899;
+  --accent-offer-1: #f59e0b;
+  --accent-offer-2: #f97316;
+  --accent-rejected-1: #6b7280;
+  --accent-rejected-2: #ef4444;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg);
+  --color-foreground: var(--text-primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--bg);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: radial-gradient(ellipse 80% 60% at 50% -10%, #1b1633 0%, var(--bg) 55%);
+  color: var(--text-primary);
+}
+
+.glass-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+  border-radius: 1rem;
+}
+
+.glass-card-hover {
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.glass-card-hover:hover {
+  background: var(--surface-hover);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+}
+
+.gradient-orb {
+  background: radial-gradient(circle at 30% 30%, var(--orb-1), var(--orb-2));
+}
+
+.stage-researching {
+  --orb-1: var(--accent-researching-1);
+  --orb-2: var(--accent-researching-2);
+}
+.stage-applied {
+  --orb-1: var(--accent-applied-1);
+  --orb-2: var(--accent-applied-2);
+}
+.stage-interview {
+  --orb-1: var(--accent-interview-1);
+  --orb-2: var(--accent-interview-2);
+}
+.stage-offer {
+  --orb-1: var(--accent-offer-1);
+  --orb-2: var(--accent-offer-2);
+}
+.stage-rejected {
+  --orb-1: var(--accent-rejected-1);
+  --orb-2: var(--accent-rejected-2);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
