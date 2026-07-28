@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 const LINKS = [
   { href: "/", label: "Pipeline" },
@@ -15,7 +16,8 @@ export default function NavBar() {
   const router = useRouter();
 
   async function logout() {
-    await fetch("/api/logout", { method: "POST" });
+    const supabase = createClient();
+    await supabase.auth.signOut();
     router.replace("/login");
     router.refresh();
   }

@@ -1,14 +1,17 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { getUser } from "@/lib/supabase/server";
 import ApplicationDetail from "@/components/detail/ApplicationDetail";
 import type { ApplicationDetailJSON } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function ApplicationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await getUser();
+  if (!user) redirect("/login");
   const { id } = await params;
-  const application = await db.application.findUnique({
-    where: { id },
+  const application = await db.application.findFirst({
+    where: { id, userId: user.id },
     include: {
       interviewLogs: { orderBy: { date: "asc" } },
       companyNotes: true,

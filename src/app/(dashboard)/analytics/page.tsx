@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { computeAnalytics } from "@/lib/analytics";
+import { getUser } from "@/lib/supabase/server";
 import StatTile from "@/components/StatTile";
 import StageBarChart from "@/components/StageBarChart";
 import RejectionPatterns from "@/components/RejectionPatterns";
@@ -14,7 +16,9 @@ function days(n: number | null) {
 }
 
 export default async function AnalyticsPage() {
-  const summary = await computeAnalytics();
+  const user = await getUser();
+  if (!user) redirect("/login");
+  const summary = await computeAnalytics(user.id);
 
   return (
     <div className="space-y-6">

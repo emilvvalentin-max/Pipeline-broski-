@@ -1,10 +1,15 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { getUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function OffersPage() {
+  const user = await getUser();
+  if (!user) redirect("/login");
   const offers = await db.offer.findMany({
+    where: { application: { userId: user.id } },
     include: { application: true },
     orderBy: { createdAt: "desc" },
   });

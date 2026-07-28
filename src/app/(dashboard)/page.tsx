@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { getUser } from "@/lib/supabase/server";
 import PipelineBoard from "@/components/PipelineBoard";
 import Greeting from "@/components/Greeting";
 import type { ApplicationJSON } from "@/lib/types";
@@ -7,7 +9,12 @@ import type { ApplicationJSON } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export default async function PipelinePage() {
-  const applications = await db.application.findMany({ orderBy: { updatedAt: "desc" } });
+  const user = await getUser();
+  if (!user) redirect("/login");
+  const applications = await db.application.findMany({
+    where: { userId: user.id },
+    orderBy: { updatedAt: "desc" },
+  });
   const serialized: ApplicationJSON[] = JSON.parse(JSON.stringify(applications));
 
   return (

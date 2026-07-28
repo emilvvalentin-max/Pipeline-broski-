@@ -33,6 +33,7 @@ enum DocumentType {
 
 model Application {
   id          String   @id @default(cuid())
+  userId      String?
   title       String
   company     String
   role        String
@@ -53,6 +54,8 @@ model Application {
   documentVersions   DocumentVersion[]
   offer              Offer?
   stageEvents        StageEvent[]
+
+  @@index([userId])
 }
 
 model StageEvent {
@@ -117,7 +120,7 @@ model DocumentVersion {
 }
 
 model Profile {
-  id              String   @id @default("singleton")
+  id              String   @id
   baseResumeText  String   @default("")
   updatedAt       DateTime @updatedAt
 }

@@ -12,8 +12,9 @@ export interface AnalyticsSummary {
   rejectedCount: number;
 }
 
-export async function computeAnalytics(): Promise<AnalyticsSummary> {
+export async function computeAnalytics(userId: string): Promise<AnalyticsSummary> {
   const applications = await db.application.findMany({
+    where: { userId },
     include: { stageEvents: { orderBy: { occurredAt: "asc" } } },
   });
 

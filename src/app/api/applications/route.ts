@@ -2,17 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { Source } from "@/generated/prisma/client";
 import { extractListing, computeFitScore, draftDocuments } from "@/lib/gemini";
+import { getUser } from "@/lib/supabase/server";
 
 const VALID_SOURCES = new Set(Object.values(Source));
 
 export async function GET() {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const applications = await db.application.findMany({
+    where: { userId: user.id },
     orderBy: { updatedAt: "desc" },
   });
   return NextResponse.json(applications);
 }
 
 export async function POST(req: NextRequest) {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const body = await req.json();
   const rawInput: string = body.rawInput ?? "";
   const requestedSource: string = body.source ?? "other";
@@ -34,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const profile = await db.profile.findUnique({ where: { id: "singleton" } });
+  const profile = await db.profile.findUnique({ where: { id: user.id } });
   const resumeText = profile?.baseResumeText ?? "";
   const hasResume = resumeText.trim().length > 0;
 
@@ -47,6 +55,7 @@ export async function POST(req: NextRequest) {
 
     const application = await db.application.create({
       data: {
+        userId: user.id,
         title: listing.title,
         company: listing.company,
         role: listing.role,

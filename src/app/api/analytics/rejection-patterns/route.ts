@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { summarizeRejectionPatterns } from "@/lib/gemini";
+import { getUser } from "@/lib/supabase/server";
 
 export async function POST() {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const rejectedApps = await db.application.findMany({
-    where: { stage: "rejected" },
+    where: { stage: "rejected", userId: user.id },
     include: { interviewLogs: { orderBy: { date: "desc" }, take: 1 } },
   });
 

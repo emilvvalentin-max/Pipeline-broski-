@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { DocumentType } from "@/generated/prisma/client";
 import { draftDocuments } from "@/lib/gemini";
+import { getUser } from "@/lib/supabase/server";
 
 // Manually save an edited version of a document.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id } = await params;
+  const owned = await db.application.findFirst({ where: { id, userId: user.id } });
+  if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const body = await req.json();
   const type: DocumentType = body.type === "cover_letter" ? DocumentType.cover_letter : DocumentType.cv;
 
@@ -27,10 +34,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
 // Regenerate both documents from the current profile + listing description.
 export async function PUT(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id } = await params;
   const [application, profile] = await Promise.all([
-    db.application.findUnique({ where: { id } }),
-    db.profile.findUnique({ where: { id: "singleton" } }),
+    db.application.findFirst({ where: { id, userId: user.id } }),
+    db.profile.findUnique({ where: { id: user.id } }),
   ]);
   if (!application) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!profile?.baseResumeText?.trim()) {
