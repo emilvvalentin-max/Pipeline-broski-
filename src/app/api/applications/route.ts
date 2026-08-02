@@ -26,13 +26,16 @@ export async function POST(req: NextRequest) {
   const requestedSource: string = body.source ?? "other";
   const sourceUrl: string | undefined = body.sourceUrl || undefined;
   const source = VALID_SOURCES.has(requestedSource as Source) ? (requestedSource as Source) : Source.other;
+  // Set when rawInput already holds the full, pre-parsed listing text (e.g. from Discover) —
+  // skips re-fetching sourceUrl, which is unreliable for sites like LinkedIn that authwall server-side fetches.
+  const skipFetch: boolean = body.skipFetch === true;
 
   if (!rawInput.trim()) {
     return NextResponse.json({ error: "rawInput is required" }, { status: 400 });
   }
 
   let pageContent = rawInput;
-  if (sourceUrl) {
+  if (sourceUrl && !skipFetch) {
     try {
       const res = await fetch(sourceUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
       const html = await res.text();
@@ -61,6 +64,8 @@ export async function POST(req: NextRequest) {
         role: listing.role,
         rawListing: listing.description,
         deadline: listing.deadline ? new Date(listing.deadline) : null,
+        location: listing.location,
+        accommodationProvided: listing.accommodationProvided,
         fitScore: fit.fitScore,
         source,
         sourceUrl,

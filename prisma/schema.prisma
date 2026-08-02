@@ -32,21 +32,23 @@ enum DocumentType {
 }
 
 model Application {
-  id          String   @id @default(cuid())
-  userId      String?
-  title       String
-  company     String
-  role        String
-  sourceUrl   String?
-  source      Source   @default(other)
-  stage       Stage    @default(researching)
-  deadline    DateTime?
-  appliedAt   DateTime?
-  fitScore    Int?
-  urgent      Boolean  @default(false)
-  rawListing  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                    String    @id @default(cuid())
+  userId                String?
+  title                 String
+  company               String
+  role                  String
+  sourceUrl             String?
+  source                Source    @default(other)
+  stage                 Stage     @default(researching)
+  deadline              DateTime?
+  appliedAt             DateTime?
+  fitScore              Int?
+  urgent                Boolean   @default(false)
+  rawListing            String?
+  location              String?
+  accommodationProvided Boolean?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   interviewLogs      InterviewLog[]
   companyNotes       CompanyNote?

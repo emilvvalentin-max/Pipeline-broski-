@@ -4,13 +4,22 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ApplicationDetailJSON } from "@/lib/types";
 import { STAGE_ORDER, STAGE_LABEL, STAGE_CLASS, SOURCE_LABEL } from "@/lib/stages";
-import { formatDate } from "@/lib/dates";
+import { toInputDate } from "@/lib/dates";
 import type { Stage } from "@/generated/prisma/client";
+
+function accommodationSelectValue(value: boolean | null): string {
+  if (value === true) return "yes";
+  if (value === false) return "no";
+  return "unknown";
+}
 
 export default function HeaderPanel({ application }: { application: ApplicationDetailJSON }) {
   const router = useRouter();
   const [stage, setStage] = useState(application.stage);
   const [urgent, setUrgent] = useState(application.urgent);
+  const [deadline, setDeadline] = useState(toInputDate(application.deadline));
+  const [location, setLocation] = useState(application.location ?? "");
+  const [accommodationProvided, setAccommodationProvided] = useState(application.accommodationProvided);
   const [deleting, setDeleting] = useState(false);
 
   async function patch(data: Record<string, unknown>) {
@@ -83,7 +92,42 @@ export default function HeaderPanel({ application }: { application: ApplicationD
         <span className="text-xs text-muted">
           {SOURCE_LABEL[application.source] ?? application.source}
         </span>
-        <span className="text-xs text-muted">Deadline: {formatDate(application.deadline)}</span>
+
+        <label className="flex items-center gap-1.5 text-xs text-muted">
+          Deadline
+          <input
+            type="date"
+            value={deadline}
+            onChange={(e) => {
+              setDeadline(e.target.value);
+              patch({ deadline: e.target.value || null });
+            }}
+            className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/25"
+          />
+        </label>
+
+        <input
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          onBlur={() => patch({ location: location.trim() || null })}
+          placeholder="Location"
+          className="w-32 rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/25 placeholder:text-muted"
+        />
+
+        <select
+          value={accommodationSelectValue(accommodationProvided)}
+          onChange={(e) => {
+            const next = e.target.value === "unknown" ? null : e.target.value === "yes";
+            setAccommodationProvided(next);
+            patch({ accommodationProvided: next });
+          }}
+          className="rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/25"
+        >
+          <option value="unknown" className="bg-[#121022]">Housing: —</option>
+          <option value="yes" className="bg-[#121022]">Housing: Yes</option>
+          <option value="no" className="bg-[#121022]">Housing: No</option>
+        </select>
+
         {application.fitScore != null && (
           <span className="text-xs text-secondary">Fit {application.fitScore}%</span>
         )}

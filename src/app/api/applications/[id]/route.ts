@@ -34,7 +34,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json();
 
   const data: Record<string, unknown> = {};
-  for (const key of ["title", "company", "role", "sourceUrl", "source", "urgent"] as const) {
+  for (const key of ["title", "company", "role", "sourceUrl", "source", "urgent", "location", "accommodationProvided"] as const) {
     if (key in body) data[key] = body[key];
   }
   if ("deadline" in body) data.deadline = body.deadline ? new Date(body.deadline) : null;

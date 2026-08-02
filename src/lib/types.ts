@@ -14,6 +14,8 @@ export interface ApplicationJSON {
   fitScore: number | null;
   urgent: boolean;
   rawListing: string | null;
+  location: string | null;
+  accommodationProvided: boolean | null;
   createdAt: string;
   updatedAt: string;
 }

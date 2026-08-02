@@ -14,6 +14,8 @@ export interface ExtractedListing {
   role: string;
   deadline: string | null;
   description: string;
+  location: string | null;
+  accommodationProvided: boolean | null;
 }
 
 export async function extractListing(rawInput: string): Promise<ExtractedListing> {
@@ -31,6 +33,8 @@ export async function extractListing(rawInput: string): Promise<ExtractedListing
           role: { type: Type.STRING, description: "Short role name, e.g. 'Corporate Finance Intern'" },
           deadline: { type: Type.STRING, nullable: true, description: "Application deadline as an ISO date (YYYY-MM-DD) if a specific date is stated, otherwise null" },
           description: { type: Type.STRING, description: "Concise summary of the role and requirements, a few sentences" },
+          location: { type: Type.STRING, nullable: true, description: "City/country the role is based in, e.g. 'Oslo, Norway', otherwise null" },
+          accommodationProvided: { type: Type.BOOLEAN, nullable: true, description: "True if the listing states housing/accommodation/relocation support is provided, false if it explicitly says it is not, null if unmentioned" },
         },
         required: ["title", "company", "role", "description"],
       },

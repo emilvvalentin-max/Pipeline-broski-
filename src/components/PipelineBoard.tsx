@@ -19,6 +19,14 @@ export default function PipelineBoard({ initialApplications }: { initialApplicat
       rejected: [],
     };
     for (const app of applications) grouped[app.stage].push(app);
+    for (const stage of STAGE_ORDER) {
+      grouped[stage].sort((a, b) => {
+        if (!a.deadline && !b.deadline) return 0;
+        if (!a.deadline) return 1;
+        if (!b.deadline) return -1;
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      });
+    }
     return grouped;
   }, [applications]);
 

@@ -41,6 +41,8 @@ export default function ApplicationCard({
         <span>{application.deadline ? `Due ${formatDate(application.deadline)}` : ""}</span>
       </div>
 
+      {application.location && <p className="text-xs text-muted truncate">{application.location}</p>}
+
       <div className="flex items-center justify-between">
         {application.fitScore != null ? (
           <span className="text-xs font-medium text-secondary">Fit {application.fitScore}%</span>
