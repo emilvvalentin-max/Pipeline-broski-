@@ -22,7 +22,7 @@ export async function extractListing(rawInput: string): Promise<ExtractedListing
   const ai = client();
   const res = await ai.models.generateContent({
     model: MODEL,
-    contents: `Extract the job listing fields from the following content (it may be a raw job posting page, pasted text, or a URL followed by page content). If a field truly cannot be determined, use null (or an empty string for description).\n\n---\n${rawInput.slice(0, 20000)}`,
+    contents: `Extract the job listing fields from the following content. It may come in several formats — pasted freeform text, a "STRUCTURED JOB DATA (JSON-LD)" block, "PAGE META TAGS", and/or raw page text — mixed in any combination depending on the source site. When a structured block and the raw page text disagree, trust the structured block. If a field truly cannot be determined from any of them, use null (or an empty string for description).\n\n---\n${rawInput.slice(0, 40000)}`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {

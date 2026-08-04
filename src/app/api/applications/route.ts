@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { Source } from "@/generated/prisma/client";
 import { extractListing, computeFitScore, draftDocuments } from "@/lib/gemini";
+import { buildPageContent } from "@/lib/listingFetch";
 import { getUser } from "@/lib/supabase/server";
 
 const VALID_SOURCES = new Set(Object.values(Source));
@@ -34,16 +35,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "rawInput is required" }, { status: 400 });
   }
 
-  let pageContent = rawInput;
-  if (sourceUrl && !skipFetch) {
-    try {
-      const res = await fetch(sourceUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
-      const html = await res.text();
-      pageContent = `${rawInput}\n\n${html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")}`;
-    } catch {
-      // fall back to whatever raw text/URL the user pasted
-    }
-  }
+  const pageContent = skipFetch ? rawInput : await buildPageContent(rawInput, sourceUrl);
 
   const profile = await db.profile.findUnique({ where: { id: user.id } });
   const resumeText = profile?.baseResumeText ?? "";
