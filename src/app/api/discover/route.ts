@@ -63,6 +63,30 @@ function hintDeadline(description: string | null): string | null {
   return match ? match[1].trim().replace(/[.\s]+$/, "") : null;
 }
 
+const UPSTREAM_ATTEMPTS = 3;
+const UPSTREAM_RETRY_DELAY_MS = 400;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// The upstream API (a third-party free-tier service) intermittently throws transient
+// 500s under normal load — retrying a couple of times clears most of them up.
+async function fetchUpstream(url: URL): Promise<EarlyCareersJob[]> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= UPSTREAM_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error(`Upstream responded ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      lastError = err;
+      if (attempt < UPSTREAM_ATTEMPTS) await sleep(UPSTREAM_RETRY_DELAY_MS * attempt);
+    }
+  }
+  throw lastError;
+}
+
 export async function GET(req: NextRequest) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -80,9 +104,7 @@ export async function GET(req: NextRequest) {
 
   let jobs: EarlyCareersJob[];
   try {
-    const res = await fetch(upstream, { headers: { Accept: "application/json" } });
-    if (!res.ok) throw new Error(`Upstream responded ${res.status}`);
-    jobs = await res.json();
+    jobs = await fetchUpstream(upstream);
   } catch {
     return NextResponse.json({ error: "Could not reach the internships source right now" }, { status: 502 });
   }

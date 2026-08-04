@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface DiscoverJob {
   link: string;
@@ -165,6 +165,12 @@ export default function DiscoverPage() {
       setSearched(true);
     }
   }, []);
+
+  // Load a default page of listings on open so Discover isn't empty before you search.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- runSearch only sets state after its internal fetch resolves
+    runSearch("", "", 1);
+  }, [runSearch]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
