@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { Source } from "@/generated/prisma/client";
-import { extractListing, computeFitScore, draftDocuments } from "@/lib/gemini";
-import { buildPageContent } from "@/lib/listingFetch";
+import { createApplicationFromListing } from "@/lib/applicationCreate";
 import { getUser } from "@/lib/supabase/server";
 
 const VALID_SOURCES = new Set(Object.values(Source));
@@ -35,48 +34,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "rawInput is required" }, { status: 400 });
   }
 
-  const pageContent = skipFetch ? rawInput : await buildPageContent(rawInput, sourceUrl);
-
-  const profile = await db.profile.findUnique({ where: { id: user.id } });
-  const resumeText = profile?.baseResumeText ?? "";
-  const hasResume = resumeText.trim().length > 0;
-
   try {
-    const listing = await extractListing(pageContent);
-    const fit = hasResume
-      ? await computeFitScore(resumeText, listing.description)
-      : { fitScore: null, rationale: "No base resume set in Profile yet — add one to get fit scores and drafts." };
-    const docs = hasResume ? await draftDocuments(resumeText, listing.description, listing.company) : null;
-
-    const application = await db.application.create({
-      data: {
-        userId: user.id,
-        title: listing.title,
-        company: listing.company,
-        role: listing.role,
-        rawListing: listing.description,
-        deadline: listing.deadline ? new Date(listing.deadline) : null,
-        location: listing.location,
-        accommodationProvided: listing.accommodationProvided,
-        fitScore: fit.fitScore,
-        source,
-        sourceUrl,
-        stage: "researching",
-        stageEvents: { create: { stage: "researching" } },
-        ...(docs
-          ? {
-              documentVersions: {
-                create: [
-                  { type: "cv" as const, versionNumber: 1, content: docs.cv },
-                  { type: "cover_letter" as const, versionNumber: 1, content: docs.coverLetter },
-                ],
-              },
-            }
-          : {}),
-      },
+    const { application, fitRationale } = await createApplicationFromListing({
+      userId: user.id,
+      rawInput,
+      sourceUrl,
+      source,
+      skipFetch,
+      includeDrafts: true,
     });
 
-    return NextResponse.json({ application, fitRationale: fit.rationale }, { status: 201 });
+    return NextResponse.json({ application, fitRationale }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to process this listing";
     return NextResponse.json({ error: message }, { status: 502 });

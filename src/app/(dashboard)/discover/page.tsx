@@ -28,6 +28,113 @@ function buildRawInput(job: DiscoverJob): string {
   return lines.join("\n");
 }
 
+interface ImportPdfSummary {
+  totalLinksFound: number;
+  alreadyTracked: number;
+  added: number;
+  skippedErrors: number;
+  skippedTimeout: number;
+  errors: { url: string; message: string }[];
+}
+
+function CountPill({ label, value, tone }: { label: string; value: number; tone: "emerald" | "muted" | "red" }) {
+  const toneClass =
+    tone === "emerald"
+      ? "bg-emerald-500/15 text-emerald-400"
+      : tone === "red"
+      ? "bg-red-500/15 text-red-400"
+      : "bg-white/10 text-muted";
+  return (
+    <span className={`rounded-full text-[10px] font-medium px-2 py-0.5 ${toneClass}`}>
+      {label}: {value}
+    </span>
+  );
+}
+
+function PdfImportBox() {
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<ImportPdfSummary | null>(null);
+
+  async function handleImport() {
+    if (!file) return;
+    setLoading(true);
+    setError(null);
+    setSummary(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/discover/import-pdf", { method: "POST", body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        setSummary(data);
+      } else {
+        setError(data.error || "Import failed");
+      }
+    } catch {
+      setError("Network error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="glass-card p-4 space-y-3">
+      <div>
+        <p className="text-sm font-medium">Import from PDF</p>
+        <p className="text-xs text-secondary mt-0.5">
+          Upload an internship tracker PDF — we&apos;ll pull every company link out of it and add the new ones to
+          your pipeline.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          type="file"
+          accept="application/pdf,.pdf"
+          onChange={(e) => {
+            setFile(e.target.files?.[0] ?? null);
+            setSummary(null);
+            setError(null);
+          }}
+          className="flex-1 min-w-[180px] text-xs text-secondary file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white"
+        />
+        <button
+          onClick={handleImport}
+          disabled={!file || loading}
+          className="shrink-0 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+        >
+          {loading ? "Importing..." : "Import"}
+        </button>
+      </div>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
+
+      {summary && (
+        <div className="space-y-2 pt-2 border-t border-white/10">
+          <div className="flex flex-wrap items-center gap-2">
+            <CountPill label="Links found" value={summary.totalLinksFound} tone="muted" />
+            <CountPill label="Added" value={summary.added} tone="emerald" />
+            <CountPill label="Already tracked" value={summary.alreadyTracked} tone="muted" />
+            {summary.skippedErrors > 0 && <CountPill label="Errors" value={summary.skippedErrors} tone="red" />}
+            {summary.skippedTimeout > 0 && <CountPill label="Skipped (time limit)" value={summary.skippedTimeout} tone="red" />}
+          </div>
+          {summary.errors.length > 0 && (
+            <div className="space-y-1">
+              {summary.errors.map((e) => (
+                <div key={e.url} className="text-xs text-red-400 truncate">
+                  {e.url}: {e.message}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AccommodationBadge({ value }: { value: boolean | null }) {
   if (value === true) {
     return (
@@ -207,6 +314,8 @@ export default function DiscoverPage() {
           {loading ? "Searching..." : "Search"}
         </button>
       </form>
+
+      <PdfImportBox />
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
