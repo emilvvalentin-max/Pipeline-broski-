@@ -2,13 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { db } from "@/lib/db";
 import { Source } from "@/generated/prisma/client";
-import { createApplicationFromListing } from "@/lib/applicationCreate";
+import { extractListing } from "@/lib/gemini";
+import { buildPageContent } from "@/lib/listingFetch";
 import { detectSourceFromUrl } from "@/lib/stages";
 import { getUser } from "@/lib/supabase/server";
 
 export const maxDuration = 60;
 
-const MAX_NEW_ADDS = 20;
+// This route only extracts + previews candidates for review — it does not create
+// applications. Creation happens per-candidate via POST /api/applications once the
+// user has reviewed/edited/deleted what they don't want.
+const MAX_CANDIDATES = 20;
 // Leave headroom under the function's 60s cap for PDF parsing + the final response.
 const TIME_BUDGET_MS = 50_000;
 
@@ -54,13 +58,13 @@ export async function POST(req: NextRequest) {
 
   const startedAt = Date.now();
   let alreadyTracked = 0;
-  let added = 0;
   let skippedErrors = 0;
   let skippedTimeout = 0;
   const errors: { url: string; message: string }[] = [];
+  const candidates: ({ url: string; source: Source } & Awaited<ReturnType<typeof extractListing>>)[] = [];
 
   for (const url of links) {
-    if (added >= MAX_NEW_ADDS) break;
+    if (candidates.length >= MAX_CANDIDATES) break;
 
     if (Date.now() - startedAt > TIME_BUDGET_MS) {
       skippedTimeout++;
@@ -74,17 +78,12 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      await createApplicationFromListing({
-        userId: user.id,
-        rawInput: url,
-        sourceUrl: url,
-        source: inferSource(url),
-        includeDrafts: false,
-      });
-      added++;
+      const pageContent = await buildPageContent(url, url);
+      const listing = await extractListing(pageContent);
+      candidates.push({ url, source: inferSource(url), ...listing });
     } catch (err) {
       skippedErrors++;
-      const message = err instanceof Error ? err.message : "Failed to process this listing";
+      const message = err instanceof Error ? err.message : "Failed to read this listing";
       errors.push({ url, message });
     }
   }
@@ -92,9 +91,9 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     totalLinksFound: links.length,
     alreadyTracked,
-    added,
     skippedErrors,
     skippedTimeout,
+    candidates,
     errors,
   });
 }

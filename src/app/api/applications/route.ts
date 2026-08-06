@@ -29,9 +29,15 @@ export async function POST(req: NextRequest) {
   // Set when rawInput already holds the full, pre-parsed listing text (e.g. from Discover) —
   // skips re-fetching sourceUrl, which is unreliable for sites like LinkedIn that authwall server-side fetches.
   const skipFetch: boolean = body.skipFetch === true;
+  // An already-extracted (and possibly user-edited) listing, e.g. from the PDF import review step —
+  // skips extraction entirely and creates the application from these fields as-is.
+  const listing = body.listing ?? undefined;
 
-  if (!rawInput.trim()) {
+  if (!listing && !rawInput.trim()) {
     return NextResponse.json({ error: "rawInput is required" }, { status: 400 });
+  }
+  if (listing && (!listing.title || !listing.company || !listing.role)) {
+    return NextResponse.json({ error: "title, company, and role are required" }, { status: 400 });
   }
 
   try {
@@ -41,6 +47,7 @@ export async function POST(req: NextRequest) {
       sourceUrl,
       source,
       skipFetch,
+      listing,
       includeDrafts: true,
     });
 

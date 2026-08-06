@@ -28,13 +28,31 @@ function buildRawInput(job: DiscoverJob): string {
   return lines.join("\n");
 }
 
-interface ImportPdfSummary {
+interface PdfCandidate {
+  url: string;
+  source: string;
+  title: string;
+  company: string;
+  role: string;
+  deadline: string | null;
+  description: string;
+  location: string | null;
+  accommodationProvided: boolean | null;
+}
+
+interface ImportPdfResponse {
   totalLinksFound: number;
   alreadyTracked: number;
-  added: number;
   skippedErrors: number;
   skippedTimeout: number;
+  candidates: PdfCandidate[];
   errors: { url: string; message: string }[];
+}
+
+interface ReviewCandidate extends PdfCandidate {
+  addState: AddState;
+  addError: string | null;
+  applicationId: string | null;
 }
 
 function CountPill({ label, value, tone }: { label: string; value: number; tone: "emerald" | "muted" | "red" }) {
@@ -51,24 +69,174 @@ function CountPill({ label, value, tone }: { label: string; value: number; tone:
   );
 }
 
+function PdfCandidateCard({
+  candidate,
+  onChange,
+  onRemove,
+  onAdded,
+}: {
+  candidate: ReviewCandidate;
+  onChange: (patch: Partial<ReviewCandidate>) => void;
+  onRemove: () => void;
+  onAdded: (applicationId: string) => void;
+}) {
+  async function handleAdd() {
+    onChange({ addState: "adding", addError: null });
+    try {
+      const res = await fetch("/api/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceUrl: candidate.url,
+          source: candidate.source,
+          listing: {
+            title: candidate.title,
+            company: candidate.company,
+            role: candidate.role,
+            deadline: candidate.deadline,
+            description: candidate.description,
+            location: candidate.location,
+            accommodationProvided: candidate.accommodationProvided,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        onChange({ addState: "added" });
+        onAdded(data.application.id);
+      } else {
+        onChange({ addState: "error", addError: data.error || "Failed to add" });
+      }
+    } catch {
+      onChange({ addState: "error", addError: "Network error" });
+    }
+  }
+
+  const disabled = candidate.addState === "adding" || candidate.addState === "added";
+
+  return (
+    <div className="glass-card p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0 grid grid-cols-2 gap-2">
+          <input
+            value={candidate.title}
+            onChange={(e) => onChange({ title: e.target.value })}
+            disabled={disabled}
+            placeholder="Title"
+            className="col-span-2 rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5 text-sm outline-none focus:border-white/25 disabled:opacity-60"
+          />
+          <input
+            value={candidate.company}
+            onChange={(e) => onChange({ company: e.target.value })}
+            disabled={disabled}
+            placeholder="Company"
+            className="rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5 text-xs outline-none focus:border-white/25 disabled:opacity-60"
+          />
+          <input
+            value={candidate.role}
+            onChange={(e) => onChange({ role: e.target.value })}
+            disabled={disabled}
+            placeholder="Role"
+            className="rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5 text-xs outline-none focus:border-white/25 disabled:opacity-60"
+          />
+        </div>
+        <button
+          onClick={onRemove}
+          disabled={disabled}
+          title="Remove — don't add this one"
+          className="shrink-0 rounded-lg bg-white/5 border border-white/10 h-7 w-7 flex items-center justify-center text-secondary hover:text-red-400 hover:border-red-400/40 disabled:opacity-40"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={candidate.location ?? ""}
+          onChange={(e) => onChange({ location: e.target.value || null })}
+          disabled={disabled}
+          placeholder="Location"
+          className="min-w-[120px] rounded-lg bg-white/5 border border-white/10 px-2.5 py-1 text-xs outline-none focus:border-white/25 disabled:opacity-60"
+        />
+        <input
+          type="date"
+          value={candidate.deadline ?? ""}
+          onChange={(e) => onChange({ deadline: e.target.value || null })}
+          disabled={disabled}
+          className="rounded-lg bg-white/5 border border-white/10 px-2.5 py-1 text-xs outline-none focus:border-white/25 disabled:opacity-60"
+        />
+        <select
+          value={candidate.accommodationProvided === null ? "unknown" : String(candidate.accommodationProvided)}
+          onChange={(e) =>
+            onChange({ accommodationProvided: e.target.value === "unknown" ? null : e.target.value === "true" })
+          }
+          disabled={disabled}
+          className="rounded-lg bg-white/5 border border-white/10 px-2.5 py-1 text-xs outline-none focus:border-white/25 disabled:opacity-60"
+        >
+          <option value="unknown" className="bg-[#121022]">Housing: —</option>
+          <option value="true" className="bg-[#121022]">Housing: Yes</option>
+          <option value="false" className="bg-[#121022]">Housing: No</option>
+        </select>
+        <a href={candidate.url} target="_blank" rel="noreferrer" className="text-xs text-purple-400 hover:text-purple-300 truncate">
+          View link ↗
+        </a>
+      </div>
+
+      <textarea
+        value={candidate.description}
+        onChange={(e) => onChange({ description: e.target.value })}
+        disabled={disabled}
+        rows={2}
+        placeholder="Description"
+        className="w-full rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5 text-xs outline-none focus:border-white/25 disabled:opacity-60"
+      />
+
+      <div className="flex items-center justify-between gap-3">
+        {candidate.addState === "error" && <span className="text-xs text-red-400 truncate">{candidate.addError}</span>}
+        <span className="flex-1" />
+        {candidate.addState === "added" && candidate.applicationId ? (
+          <a
+            href={`/applications/${candidate.applicationId}`}
+            className="shrink-0 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-emerald-400"
+          >
+            Added ✓ View
+          </a>
+        ) : (
+          <button
+            onClick={handleAdd}
+            disabled={candidate.addState === "adding"}
+            className="shrink-0 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+          >
+            {candidate.addState === "adding" ? "Adding..." : candidate.addState === "error" ? "Retry" : "Add to pipeline"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PdfImportBox() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<ImportPdfSummary | null>(null);
+  const [meta, setMeta] = useState<Omit<ImportPdfResponse, "candidates"> | null>(null);
+  const [candidates, setCandidates] = useState<ReviewCandidate[]>([]);
 
   async function handleImport() {
     if (!file) return;
     setLoading(true);
     setError(null);
-    setSummary(null);
+    setMeta(null);
+    setCandidates([]);
     try {
       const formData = new FormData();
       formData.append("file", file);
       const res = await fetch("/api/discover/import-pdf", { method: "POST", body: formData });
       const data = await res.json();
       if (res.ok) {
-        setSummary(data);
+        const { candidates: found, ...rest } = data as ImportPdfResponse;
+        setMeta(rest);
+        setCandidates(found.map((c) => ({ ...c, addState: "idle", addError: null, applicationId: null })));
       } else {
         setError(data.error || "Import failed");
       }
@@ -79,56 +247,85 @@ function PdfImportBox() {
     }
   }
 
+  function patchCandidate(url: string, patch: Partial<ReviewCandidate>) {
+    setCandidates((prev) => prev.map((c) => (c.url === url ? { ...c, ...patch } : c)));
+  }
+
+  function removeCandidate(url: string) {
+    setCandidates((prev) => prev.filter((c) => c.url !== url));
+  }
+
   return (
-    <div className="glass-card p-4 space-y-3">
-      <div>
-        <p className="text-sm font-medium">Import from PDF</p>
-        <p className="text-xs text-secondary mt-0.5">
-          Upload an internship tracker PDF — we&apos;ll pull every company link out of it and add the new ones to
-          your pipeline.
-        </p>
-      </div>
+    <div className="space-y-3">
+      <div className="glass-card p-4 space-y-3">
+        <div>
+          <p className="text-sm font-medium">Import from PDF</p>
+          <p className="text-xs text-secondary mt-0.5">
+            Upload an internship tracker PDF — we&apos;ll pull every company link out of it, extract the listing
+            details, and let you review, edit, or skip each one before it&apos;s added to your pipeline.
+          </p>
+        </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="file"
-          accept="application/pdf,.pdf"
-          onChange={(e) => {
-            setFile(e.target.files?.[0] ?? null);
-            setSummary(null);
-            setError(null);
-          }}
-          className="flex-1 min-w-[180px] text-xs text-secondary file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white"
-        />
-        <button
-          onClick={handleImport}
-          disabled={!file || loading}
-          className="shrink-0 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-1.5 text-xs font-medium disabled:opacity-50"
-        >
-          {loading ? "Importing..." : "Import"}
-        </button>
-      </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={(e) => {
+              setFile(e.target.files?.[0] ?? null);
+              setMeta(null);
+              setCandidates([]);
+              setError(null);
+            }}
+            className="flex-1 min-w-[180px] text-xs text-secondary file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white"
+          />
+          <button
+            onClick={handleImport}
+            disabled={!file || loading}
+            className="shrink-0 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+          >
+            {loading ? "Reading PDF..." : "Extract links"}
+          </button>
+        </div>
 
-      {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-red-400">{error}</p>}
 
-      {summary && (
-        <div className="space-y-2 pt-2 border-t border-white/10">
-          <div className="flex flex-wrap items-center gap-2">
-            <CountPill label="Links found" value={summary.totalLinksFound} tone="muted" />
-            <CountPill label="Added" value={summary.added} tone="emerald" />
-            <CountPill label="Already tracked" value={summary.alreadyTracked} tone="muted" />
-            {summary.skippedErrors > 0 && <CountPill label="Errors" value={summary.skippedErrors} tone="red" />}
-            {summary.skippedTimeout > 0 && <CountPill label="Skipped (time limit)" value={summary.skippedTimeout} tone="red" />}
-          </div>
-          {summary.errors.length > 0 && (
-            <div className="space-y-1">
-              {summary.errors.map((e) => (
-                <div key={e.url} className="text-xs text-red-400 truncate">
-                  {e.url}: {e.message}
-                </div>
-              ))}
+        {meta && (
+          <div className="space-y-2 pt-2 border-t border-white/10">
+            <div className="flex flex-wrap items-center gap-2">
+              <CountPill label="Links found" value={meta.totalLinksFound} tone="muted" />
+              <CountPill label="Ready to review" value={candidates.length} tone="emerald" />
+              <CountPill label="Already tracked" value={meta.alreadyTracked} tone="muted" />
+              {meta.skippedErrors > 0 && <CountPill label="Read errors" value={meta.skippedErrors} tone="red" />}
+              {meta.skippedTimeout > 0 && <CountPill label="Skipped (time limit)" value={meta.skippedTimeout} tone="red" />}
             </div>
-          )}
+            {meta.errors.length > 0 && (
+              <div className="space-y-1">
+                {meta.errors.map((e) => (
+                  <div key={e.url} className="text-xs text-red-400 truncate">
+                    {e.url}: {e.message}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {candidates.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs text-secondary">
+            Review each one below — edit anything that got misread, or remove ones that don&apos;t fit, then add
+            them individually.
+          </p>
+          {candidates.map((c) => (
+            <PdfCandidateCard
+              key={c.url}
+              candidate={c}
+              onChange={(patch) => patchCandidate(c.url, patch)}
+              onRemove={() => removeCandidate(c.url)}
+              onAdded={(applicationId) => patchCandidate(c.url, { applicationId })}
+            />
+          ))}
         </div>
       )}
     </div>

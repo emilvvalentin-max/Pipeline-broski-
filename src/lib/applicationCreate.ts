@@ -1,31 +1,35 @@
 import { db } from "@/lib/db";
 import { Source } from "@/generated/prisma/client";
-import { extractListing, computeFitScore, draftDocuments } from "@/lib/gemini";
+import { extractListing, computeFitScore, draftDocuments, ExtractedListing } from "@/lib/gemini";
 import { buildPageContent } from "@/lib/listingFetch";
 
 export interface CreateApplicationParams {
   userId: string;
-  rawInput: string;
   sourceUrl?: string;
   source: Source;
+  // Raw text/URL to run through extraction. Required unless `listing` is given directly.
+  rawInput?: string;
   // Set when rawInput already holds the full, pre-parsed listing text (e.g. from Discover) —
   // skips re-fetching sourceUrl, which is unreliable for sites like LinkedIn that authwall server-side fetches.
   skipFetch?: boolean;
+  // A already-extracted (and possibly user-edited) listing — skips buildPageContent + extractListing
+  // entirely and uses these fields as-is. Used by review-before-add flows (e.g. PDF import).
+  listing?: ExtractedListing;
   // Draft a tailored CV + cover letter alongside the listing. Off by default for bulk-import
   // flows, where drafting for every link would blow the request's time budget.
   includeDrafts?: boolean;
 }
 
 export async function createApplicationFromListing(params: CreateApplicationParams) {
-  const { userId, rawInput, sourceUrl, source, skipFetch = false, includeDrafts = false } = params;
-
-  const pageContent = skipFetch ? rawInput : await buildPageContent(rawInput, sourceUrl);
+  const { userId, sourceUrl, source, skipFetch = false, includeDrafts = false } = params;
 
   const profile = await db.profile.findUnique({ where: { id: userId } });
   const resumeText = profile?.baseResumeText ?? "";
   const hasResume = resumeText.trim().length > 0;
 
-  const listing = await extractListing(pageContent);
+  const listing = params.listing
+    ? params.listing
+    : await extractListing(skipFetch ? (params.rawInput ?? "") : await buildPageContent(params.rawInput ?? "", sourceUrl));
   const fit = hasResume
     ? await computeFitScore(resumeText, listing.description)
     : { fitScore: null, rationale: "No base resume set in Profile yet — add one to get fit scores and drafts." };
